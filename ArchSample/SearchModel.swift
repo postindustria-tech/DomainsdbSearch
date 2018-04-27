@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import RxCocoa
 import RxSwift
 
 struct SearchParameters {
@@ -15,8 +16,8 @@ struct SearchParameters {
 
 protocol SearchModel {
     init(networkManager: NetworkManager, parameters: Observable<SearchParameters>)
-    var results: Observable<[Domain]> { get }
-    var isActive: Observable<Bool> { get }
+    var results: Driver<[Domain]> { get }
+    var isActive: Driver<Bool> { get }
 }
 
 struct DomainerSearchModel: SearchModel {
@@ -25,8 +26,8 @@ struct DomainerSearchModel: SearchModel {
     private let params: Observable<SearchParameters>
     private let activity = ReplaySubject<Bool>.create(bufferSize: 1)
 
-    let results: Observable<[Domain]>
-    let isActive: Observable<Bool>
+    let results: Driver<[Domain]>
+    let isActive: Driver<Bool>
 
     init(networkManager: NetworkManager, parameters: Observable<SearchParameters>) {
         self.manager = networkManager
@@ -49,12 +50,9 @@ struct DomainerSearchModel: SearchModel {
             .do(onNext: { [weak activity] _ in
                 activity?.onNext(false)
             })
-            .observeOn(MainScheduler.instance)
-            .share(replay: 1)
+            .asDriver(onErrorJustReturn: [])
 
         self.isActive = activity.asObservable()
-            .observeOn(MainScheduler.instance)
-            .share(replay: 1)
+            .asDriver(onErrorJustReturn: false)
     }
-
 }

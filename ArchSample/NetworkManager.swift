@@ -12,8 +12,6 @@ import RxAlamofire
 import RxSwift
 import RxOptional
 
-typealias JSON = [String: Any]
-
 protocol NetworkManager {
     func makeRequest<Result: Decodable>(method: HTTPMethod, url: URLConvertible, params: Parameters) -> Observable<Result?>
 }

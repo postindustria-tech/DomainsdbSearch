@@ -20,10 +20,5 @@ struct Domain: Decodable {
 }
 
 struct Domains: Decodable {
-    enum CodingKeys: String, CodingKey
-    {
-        case domains = "domains"
-    }
-
     let domains: [Domain]
 }

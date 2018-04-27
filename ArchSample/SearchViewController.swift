@@ -27,15 +27,15 @@ class SearchViewController: UIViewController {
             .share(replay: 1)
     }()
 
-    private lazy var model = DomainerSearchModel(networkManager: AfNetworkManager(), parameters: self.parametersObservable)
+    private lazy var model: SearchModel = DomainerSearchModel(networkManager: AfNetworkManager(), parameters: self.parametersObservable)
 
-    private lazy var gotResults: Observable<Bool> = self.model.results.map { !$0.isEmpty }
+    private lazy var gotResults: Driver<Bool> = self.model.results.map { !$0.isEmpty }
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
         model.results
-            .bind(to: resultsTable.rx.items) { (tableView, _, element) in
+            .drive(resultsTable.rx.items) { (tableView, _, element) in
                 let cell = tableView.dequeueReusableCell(withIdentifier: "TableCell")!
                 cell.textLabel?.text = element.name
                 cell.detailTextLabel?.text = element.updated
@@ -44,7 +44,7 @@ class SearchViewController: UIViewController {
             .disposed(by: disposeBag)
 
         model.isActive
-            .subscribe(onNext: { state in
+            .drive(onNext: { state in
                 if state {
                     HUD.show(.progress)
                 } else {
@@ -55,12 +55,14 @@ class SearchViewController: UIViewController {
 
         model.isActive
             .map { !$0 }
-            .bind(to: searchBar.rx.isUserInteractionEnabled)
+            .drive(searchBar.rx.isUserInteractionEnabled)
             .disposed(by: disposeBag)
 
-        gotResults.bind(to: messageView.rx.isHidden).disposed(by: disposeBag)
+        gotResults
+            .drive(messageView.rx.isHidden)
+            .disposed(by: disposeBag)
 
-        Observable.combineLatest(gotResults, parametersObservable)
+        Observable.combineLatest(gotResults.asObservable(), parametersObservable)
             .filter { !$0.0 }
             .map { $0.1.request.isEmpty }
             .subscribe(onNext: { [messageLabel] emptyRequest in
