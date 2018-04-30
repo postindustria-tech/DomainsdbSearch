@@ -21,7 +21,7 @@ class SearchViewController: UIViewController {
     private lazy var parametersObservable: Observable<SearchParameters> = {
         return searchBar.rx.text
             .orEmpty
-            .debounce(0.5, scheduler: MainScheduler.instance)
+            .debounce(0.3, scheduler: MainScheduler.instance)
             .distinctUntilChanged()
             .map { SearchParameters(request: $0) }
             .share(replay: 1)
@@ -62,12 +62,10 @@ class SearchViewController: UIViewController {
             .drive(messageView.rx.isHidden)
             .disposed(by: disposeBag)
 
-        Observable.combineLatest(gotResults.asObservable(), parametersObservable)
+        Driver.combineLatest(gotResults, searchBar.rx.text.orEmpty.asDriver())
             .filter { !$0.0 }
-            .map { $0.1.request.isEmpty }
-            .subscribe(onNext: { [messageLabel] emptyRequest in
-                messageLabel?.text = emptyRequest ? "Please, search something" : "No result for this request"
-            })
+            .map { $0.1.isEmpty ? "Please, search something" : "No result for this request" }
+            .drive(messageLabel.rx.text)
             .disposed(by: disposeBag)
     }
 }
