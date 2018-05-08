@@ -27,14 +27,17 @@ class SearchViewController: UIViewController {
             .share(replay: 1)
     }()
 
-    private lazy var model: SearchModel = DomainerSearchModel(networkManager: AfNetworkManager(), parameters: self.parametersObservable)
+    private lazy var model: SearchViewModel = DomainerSearchViewModel(networkManager: AfNetworkManager(),
+                                                                      parameters: self.parametersObservable)
 
-    private lazy var gotResults: Driver<Bool> = self.model.results.map { !$0.isEmpty }
+    private lazy var modelActive: Driver<Bool> = self.model.isActive.asDriver(onErrorJustReturn: false)
+    private lazy var gotResults: Driver<Bool> = self.model.results.map { !$0.isEmpty }.asDriver(onErrorJustReturn: false)
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
         model.results
+            .asDriver(onErrorJustReturn: [])
             .drive(resultsTable.rx.items) { (tableView, _, element) in
                 let cell = tableView.dequeueReusableCell(withIdentifier: "TableCell")!
                 cell.textLabel?.text = element.name
@@ -43,7 +46,7 @@ class SearchViewController: UIViewController {
             }
             .disposed(by: disposeBag)
 
-        model.isActive
+        modelActive
             .drive(onNext: { state in
                 if state {
                     HUD.show(.progress)
@@ -53,7 +56,7 @@ class SearchViewController: UIViewController {
             })
             .disposed(by: disposeBag)
 
-        model.isActive
+        modelActive
             .map { !$0 }
             .drive(searchBar.rx.isUserInteractionEnabled)
             .disposed(by: disposeBag)

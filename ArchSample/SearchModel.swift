@@ -14,20 +14,20 @@ struct SearchParameters {
     let request: String
 }
 
-protocol SearchModel {
+protocol SearchViewModel {
     init(networkManager: NetworkManager, parameters: Observable<SearchParameters>)
-    var results: Driver<[Domain]> { get }
-    var isActive: Driver<Bool> { get }
+    var results: Observable<[Domain]> { get }
+    var isActive: Observable<Bool> { get }
 }
 
-struct DomainerSearchModel: SearchModel {
+struct DomainerSearchViewModel: SearchViewModel {
     private static let url = "https://api.domainsdb.info/search"
     private let manager: NetworkManager
     private let params: Observable<SearchParameters>
-    private let activity = ReplaySubject<Bool>.create(bufferSize: 1)
+    private let activity = PublishSubject<Bool>()
 
-    let results: Driver<[Domain]>
-    let isActive: Driver<Bool>
+    let results: Observable<[Domain]>
+    let isActive: Observable<Bool>
 
     init(networkManager: NetworkManager, parameters: Observable<SearchParameters>) {
         self.manager = networkManager
@@ -42,7 +42,7 @@ struct DomainerSearchModel: SearchModel {
                     return Observable.just(nil)
                 }
                 let qryParams = ["query": params.request]
-                return manager.makeRequest(method: .get, url: DomainerSearchModel.url, params: qryParams)
+                return manager.makeRequest(method: .get, url: DomainerSearchViewModel.url, params: qryParams)
             }
             .map { data in
                 return data?.domains ?? []
@@ -50,9 +50,11 @@ struct DomainerSearchModel: SearchModel {
             .do(onNext: { [weak activity] _ in
                 activity?.onNext(false)
             })
-            .asDriver(onErrorJustReturn: [])
+            .observeOn(MainScheduler.instance)
+            .share(replay: 1)
 
         self.isActive = activity.asObservable()
-            .asDriver(onErrorJustReturn: false)
+            .observeOn(MainScheduler.instance)
+            .share(replay: 1)
     }
 }

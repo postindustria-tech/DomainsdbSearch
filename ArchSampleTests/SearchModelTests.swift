@@ -14,6 +14,8 @@ import XCTest
 @testable import ArchSample
 
 class MockNetworkManager: NetworkManager {
+    let isLoading: Observable<Bool> = Observable.never()
+
     private let mockData: Data
 
     init(stubName: String) {
@@ -28,10 +30,10 @@ class MockNetworkManager: NetworkManager {
 }
 
 class SearchModelTests: XCTestCase {
-    private var stubModel: DomainerSearchModel {
+    private var stubModel: DomainerSearchViewModel {
         let manager = MockNetworkManager(stubName: "SearchStub")
         let params = Observable.just(SearchParameters(request: "Med"))
-        return DomainerSearchModel(networkManager: manager, parameters: params)
+        return DomainerSearchViewModel(networkManager: manager, parameters: params)
     }
 
     func testParsing() {

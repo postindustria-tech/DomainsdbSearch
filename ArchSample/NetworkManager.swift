@@ -13,32 +13,42 @@ import RxSwift
 import RxOptional
 
 protocol NetworkManager {
-    func makeRequest<Result: Decodable>(method: HTTPMethod, url: URLConvertible, params: Parameters) -> Observable<Result?>
-}
-
-extension NetworkManager {
-    func setNetworkIndicator(status: Bool) {
-        DispatchQueue.main.async {
-            UIApplication.shared.isNetworkActivityIndicatorVisible = status
-        }
-    }
+    var isLoading: Observable<Bool> { get }
+    func makeRequest<Model: Decodable>(method: HTTPMethod, url: URLConvertible, params: Parameters) -> Observable<Model?>
 }
 
 struct AfNetworkManager: NetworkManager {
-    func makeRequest<Result: Decodable>(method: HTTPMethod, url: URLConvertible, params: Parameters) -> Observable<Result?> {
-        setNetworkIndicator(status: true)
+    private let disposeBag = DisposeBag()
+    private let activity = PublishSubject<Bool>()
+
+    let isLoading: Observable<Bool>
+
+    init(bindNetworkActivityIndicator: Bool = true) {
+        self.isLoading = activity.asObservable()
+            .share(replay: 1)
+
+        if bindNetworkActivityIndicator {
+            isLoading.asDriver(onErrorJustReturn: false)
+                .drive(UIApplication.shared.rx.isNetworkActivityIndicatorVisible)
+                .disposed(by: disposeBag)
+        }
+    }
+
+    func makeRequest<Model: Decodable>(method: HTTPMethod, url: URLConvertible, params: Parameters) -> Observable<Model?> {
+        activity.onNext(true)
         return request(method, url, parameters: params)
-            .do(onNext: { _ in
-                self.setNetworkIndicator(status: false)
-            })
             .validate(statusCode: 200..<300)
             .validate(contentType: ["application/json"])
             .flatMap { $0.rx.responseData() }
-            .map { _, data -> Result? in
-                return try? JSONDecoder().decode(Result.self, from: data)
+            .do(onNext: { [activity] _ in
+                activity.onNext(false)
+            })
+            .map { _, data -> Model? in
+                return try? JSONDecoder().decode(Model.self, from: data)
             }
-            .catchError { error in
+            .catchError { [activity] error in
                 print("!!! We've got an error \(error.localizedDescription)")
+                activity.onNext(false)
                 return Observable.just(nil)
             }
     }
