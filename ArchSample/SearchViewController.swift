@@ -57,7 +57,7 @@ class SearchViewController: UIViewController {
             .disposed(by: disposeBag)
 
         modelActive
-            .map { !$0 }
+            .map(!)
             .drive(searchBar.rx.isUserInteractionEnabled)
             .disposed(by: disposeBag)
 
